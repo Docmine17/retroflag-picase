@@ -58,7 +58,7 @@ RetroFlag Pi-Case Safe Shutdown
 3. Press F4 enter terminal.
 4. In the terminal, type the one-line command below(Case sensitive):
 
-wget -O - "https://raw.githubusercontent.com/RetroFlag/retroflag-picase/master/install.sh" | sudo bash
+wget -O - "https://raw.githubusercontent.com/Docmine17/retroflag-picase/master/install.sh" | sudo bash
 
 
 
