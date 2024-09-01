@@ -25,6 +25,8 @@ def poweroff():
 	while True:
 		#self.assertEqual(GPIO.input(powerPin), GPIO.LOW)
 		GPIO.wait_for_edge(powerPin, GPIO.FALLING)
+		os.system("systemctl stop --user steamlink.service")
+		os.system("sudo sleep 2s")
 		os.system("sudo shutdown -r now")
 
 #blinks the LED to signal button being pushed
@@ -45,6 +47,8 @@ def reset():
 	while True:
 		#self.assertEqual(GPIO.input(resetPin), GPIO.LOW)
 		GPIO.wait_for_edge(resetPin, GPIO.FALLING)
+		os.system("systemctl stop --user steamlink.service")
+		os.system("sudo sleep 2s")
 		os.system("sudo shutdown -r now")
 
 
