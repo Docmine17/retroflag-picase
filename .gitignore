@@ -1,0 +1,15 @@
+# Python byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Editor / OS files
+.DS_Store
+*.swp
+*.swo
+*~

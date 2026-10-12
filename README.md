@@ -1,88 +1,84 @@
-# Contents
-* [GPiCase2 (GPi Case 2 only)](#gpicase2-gpi-case-2-only)
-* [GPi Case (GPi Case only)](#gpi-case-gpi-case-only)
-    * [For RetroPie](#for-retropie)
-    * [For Recalbox](#for-recalbox)
-* [Pi Case (nespi+, superpi, megapi,nespi4 case)](#pi-case)
-    * [Example for RetroPie](#example-for-retropie)
-    * [Example for RecalBox](#example-for-recalbox)
-    * [Example for batocera](#example-for-batocera)
+# RetroFlag Pi Case — Safe Shutdown for Raspberry Pi OS
 
--------------------- 
+Safe Shutdown and Reset service for **RetroFlag Pi Cases** (**SuperPi**, **NESPi+**, **MegaPi**, and **NESPi 4**) running **Raspberry Pi OS** (Bookworm, Trixie, and earlier Debian-based releases, including RetroPie).
 
-# GPiCase2 (GPi Case 2 only)
-The RetroFlag GPiCase 2 CM4 safe shutdown script will automatically switch between the LCD display and HDMI output when using the dock.
+---
 
-### Click the link Jump to install GPiCase2 script：[GPiCase2 Script](https://github.com/RetroFlag/GPiCase2-Script).
+## Hardware Prerequisite
 
-    
--------------------- 
+Before installing the software, make sure the physical **SAFE SHUTDOWN** switch inside the case is set to the **ON** position.
 
+---
 
-# GPi Case (GPi Case only)
-### Turn switch "SAFE SHUTDOWN" to ON.
+## Installation
 
-### For RetroPie:
+### One-Line Install
+Run the following command in your Raspberry Pi terminal:
 
-1. Make sure internet connected.
-2. Make sure keyboard connected.
-3. Press F4 enter terminal.
-4. In the terminal, type the one-line command below(Case sensitive):
-
-wget -O - "https://raw.githubusercontent.com/RetroFlag/retroflag-picase/master/install_gpi.sh" | sudo bash
-
-
-### For Recalbox
-1. Make sure internet connected.
-2. Make sure keyboard connected.
-3. Press F4 first. And then press ALT-F2 enter terminal.
-4. User: root Password: recalboxroot
-5. In the terminal, type the one-line command below(Case sensitive):
-
-wget -O - "https://raw.githubusercontent.com/RetroFlag/retroflag-picase/master/recalbox_install_gpi.sh" | bash
-
-  
--------------------- 
-
-
-# Pi Case 
-## (nespi+, superpi, megapi,nespi4 case)
-RetroFlag Pi-Case Safe Shutdown
-
-### Turn switch "SAFE SHUTDOWN" to ON.
-
-
-### Example for RetroPie:
-1. Make sure internet connected.
-2. Make sure keyboard connected.
-3. Press F4 enter terminal.
-4. In the terminal, type the one-line command below(Case sensitive):
-
+```bash
 wget -O - "https://raw.githubusercontent.com/Docmine17/retroflag-picase/master/install.sh" | sudo bash
+```
 
+### Local Clone Install
+Alternatively, clone the repository and run the installer locally:
 
+```bash
+git clone https://github.com/Docmine17/retroflag-picase.git
+cd retroflag-picase
+sudo ./install.sh
+```
 
-### Example for RecalBox:
-1. Make sure internet connected.
-2. Make sure keyboard connected.
-3. Press F4 first. And then press ALT-F2 enter terminal.
-4. User: root Password: recalboxroot
-5. In the terminal, type the one-line command below(Case sensitive):
+The installer will automatically:
+1. Detect your boot partition (`/boot/firmware` or `/boot`), install the `RetroFlag_pw_io.dtbo` device tree overlay, and load it at runtime via `dtoverlay`.
+2. Enable `dtoverlay=RetroFlag_pw_io.dtbo` and `enable_uart=1` under `[all]` in `config.txt`.
+3. Ensure the Python 3 `RPi.GPIO` library (`python3-rpi-lgpio` or `python3-rpi.gpio`) is installed.
+4. Install `/opt/RetroFlag/SafeShutdown.py` and enable/start the `retroflag-picase.service` `systemd` unit immediately (**no reboot is required**).
 
-wget -O - "https://raw.githubusercontent.com/RetroFlag/retroflag-picase/master/recalbox_install.sh" | bash
+---
 
+## Service Management
 
+You can check the service status and logs with `systemd`:
 
-### Example for batocera:
-1. Make sure internet connected.
-2. Make sure keyboard connected.
-3. Enter terminal. How to enter terminal: https://wiki.batocera.org/access_the_batocera_via_ssh
-4. User: root Password: linux
-5. In the terminal, type the one-line command below(Case sensitive):
+```bash
+# Check service status
+systemctl status retroflag-picase.service
 
-wget -O - "https://raw.githubusercontent.com/RetroFlag/retroflag-picase/master/batocera_install.sh" | bash
+# View service logs
+journalctl -u retroflag-picase.service -f
+```
 
+---
 
+## Uninstallation
 
-### Example for lakkatv:
-https://github.com/marcelonovaes/lakka_nespi_power
+To completely stop and remove the service, scripts, runtime overlay (`dtoverlay -r`), and `config.txt` changes:
+
+```bash
+wget -O - "https://raw.githubusercontent.com/Docmine17/retroflag-picase/master/uninstall.sh" | sudo bash
+```
+
+Or from a local clone:
+
+```bash
+sudo ./uninstall.sh
+```
+
+---
+
+## GPIO Pin Mapping
+
+| Function | BCM GPIO | Physical Pin | Direction | Active State |
+| :--- | :---: | :---: | :---: | :---: |
+| **Reset Button** | `BCM 2` (SDA1) | Pin 3 | Input (Pull-Up) | `LOW` when pressed |
+| **Power Switch** | `BCM 3` (SCL1) | Pin 5 | Input (Pull-Up) | `LOW` when switched OFF |
+| **Power Enable** | `BCM 4` (GPCLK0) | Pin 7 | Output | `HIGH` while running |
+| **Power LED** | `BCM 14` (UART0 TXD) | Pin 8 | Output | `HIGH` (blinks during shutdown) |
+
+---
+
+## Other Distributions & Cases
+
+- **Batocera:** Modern Batocera releases natively support RetroFlag cases without external scripts. Set `system.power.switch=RETROFLAG` in `/userdata/system/batocera.conf` and reboot (see the [Batocera Wiki](https://wiki.batocera.org/add_powerdevices_rpi_only)).
+- **Recalbox:** Modern Recalbox releases include built-in auto-detection for RetroFlag cases (or can be configured via `system.power.switch=PIN356ONOFFRESET` in `recalbox.conf`; see the [Recalbox Wiki](https://wiki.recalbox.com/en/tutorials/cases/list-of-supported-cases)).
+- **GPi Case / GPi Case 2:** For handheld GPi Case hardware, refer to the official [RetroFlag/retroflag-picase](https://github.com/RetroFlag/retroflag-picase) and [RetroFlag/GPiCase2-Script](https://github.com/RetroFlag/GPiCase2-Script) repositories.
