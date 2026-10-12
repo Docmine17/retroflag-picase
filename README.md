@@ -16,7 +16,7 @@ Before installing the software, make sure the physical **SAFE SHUTDOWN** switch 
 Run the following command in your Raspberry Pi terminal:
 
 ```bash
-wget -O - "https://raw.githubusercontent.com/Docmine17/retroflag-picase/master/install.sh" | sudo bash
+wget -qO - "https://raw.githubusercontent.com/Docmine17/retroflag-picase/master/install.sh" | sudo bash
 ```
 
 ### Local Clone Install
@@ -55,7 +55,7 @@ journalctl -u retroflag-picase.service -f
 To completely stop and remove the service, scripts, runtime overlay (`dtoverlay -r`), and `config.txt` changes:
 
 ```bash
-wget -O - "https://raw.githubusercontent.com/Docmine17/retroflag-picase/master/uninstall.sh" | sudo bash
+wget -qO - "https://raw.githubusercontent.com/Docmine17/retroflag-picase/master/uninstall.sh" | sudo bash
 ```
 
 Or from a local clone:

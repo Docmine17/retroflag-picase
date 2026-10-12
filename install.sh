@@ -46,7 +46,7 @@ echo "UART enabled."
 
 # Load overlay at runtime so no reboot is needed
 if command -v dtoverlay >/dev/null 2>&1; then
-    if ! dtoverlay -l | grep -q "RetroFlag_pw_io" && [[ -z "$(find /proc/device-tree -name 'power_pins' 2>/dev/null)" ]]; then
+    if ! dtoverlay -l | grep -q "RetroFlag_pw_io" && [[ -z "$(find /proc/device-tree/ -name 'power_pins' 2>/dev/null)" ]]; then
         dtoverlay -d "$OverlayDir" RetroFlag_pw_io 2>/dev/null || dtoverlay RetroFlag_pw_io 2>/dev/null || true
     fi
 fi

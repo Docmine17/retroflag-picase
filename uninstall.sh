@@ -52,7 +52,7 @@ for BootDir in "/boot/firmware" "/boot"; do
 done
 #-----------------------------------------------------------
 
-if [[ -n "$(find /proc/device-tree -name 'power_pins' 2>/dev/null)" ]]; then
+if [[ -n "$(find /proc/device-tree/ -name 'power_pins' 2>/dev/null)" ]]; then
     echo "RetroFlag Pi Case uninstallation done. Boot-loaded overlay will be unloaded on the next reboot."
 else
     echo "RetroFlag Pi Case uninstallation done. No reboot is required."
