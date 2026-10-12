@@ -1,64 +1,101 @@
 #!/bin/bash
+set -e
 
 SourcePath=https://raw.githubusercontent.com/Docmine17/retroflag-picase/master
+ScriptDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 
-#Check if root--------------------------------------
+# Check if root--------------------------------------
 if [[ $EUID -ne 0 ]]; then
-   echo "Please execute script as root." 
+   echo "Please execute script as root."
    exit 1
 fi
 #-----------------------------------------------------------
 
-#RetroFlag pw io ;2:in ;3:in ;4:in ;14:out 1----------------------------------------
-File=/boot/config.txt
-wget -O  "/boot/overlays/RetroFlag_pw_io.dtbo" "$SourcePath/RetroFlag_pw_io.dtbo"
-if grep -q "RetroFlag_pw_io" "$File";
-	then
-		sed -i '/RetroFlag_pw_io/c dtoverlay=RetroFlag_pw_io.dtbo' $File 
-		echo "PW IO fix."
-	else
-		echo "dtoverlay=RetroFlag_pw_io.dtbo" >> $File
-		echo "PW IO enabled."
-fi
-if grep -q "enable_uart" "$File";
-	then
-		sed -i '/enable_uart/c enable_uart=1' $File 
-		echo "UART fix."
-	else
-		echo "enable_uart=1" >> $File
-		echo "UART enabled."
+# Detect boot directory (/boot/firmware on Bookworm+, /boot on legacy)
+if [[ -d "/boot/firmware/overlays" && -f "/boot/firmware/config.txt" ]]; then
+   BootDir="/boot/firmware"
+else
+   BootDir="/boot"
 fi
 
+File="$BootDir/config.txt"
+OverlayDir="$BootDir/overlays"
+
+# RetroFlag pw io ;2:in ;3:in ;4:in ;14:out 1----------------------------------------
+if [[ -n "${BASH_SOURCE[0]}" && -f "$ScriptDir/RetroFlag_pw_io.dtbo" ]]; then
+   cp "$ScriptDir/RetroFlag_pw_io.dtbo" "$OverlayDir/RetroFlag_pw_io.dtbo"
+else
+   wget -O "$OverlayDir/RetroFlag_pw_io.dtbo" "$SourcePath/RetroFlag_pw_io.dtbo"
+fi
+
+# Clean previous entries to avoid duplicates or placement inside model filters
+sed -i '/dtoverlay=RetroFlag_pw_io/d' "$File"
+sed -i '/^[[:space:]]*enable_uart=/d' "$File"
+
+# Ensure settings are placed under the [all] section if model filters exist
+LastSection=$(grep -E '^[[:space:]]*\[.*\]' "$File" | tail -n 1 | tr -d '[:space:]' || true)
+if [[ -n "$LastSection" && "$LastSection" != "[all]" ]]; then
+   echo "" >> "$File"
+   echo "[all]" >> "$File"
+fi
+
+echo "dtoverlay=RetroFlag_pw_io.dtbo" >> "$File"
+echo "PW IO enabled."
+echo "enable_uart=1" >> "$File"
+echo "UART enabled."
 #-----------------------------------------------------------
 
-#Download Python script-----------------------------
-sudo mkdir "/opt/RetroFlag"
-script=/opt/RetroFlag/SafeShutdown.py
-wget -O $script "$SourcePath/SafeShutdown.py"
-
-#Enable Python script to run on start up------------
-RC=/etc/rc.local
-
-if grep -q "sudo python $script &" "$RC";
-	then
-		echo "File $RC already configured. Doing nothing."
-	else
-		sed -i -e "s/^exit 0/sudo python \/opt\/RetroFlag\/SafeShutdown.py \&\n&/g" "$RC"
-		echo "File /etc/rc.local configured."
+# Ensure Python 3 RPi.GPIO module is installed--------------
+if ! python3 -c "import RPi.GPIO" >/dev/null 2>&1; then
+   echo "Installing Python 3 GPIO dependency..."
+   apt-get update
+   if apt-cache show python3-rpi-lgpio >/dev/null 2>&1; then
+      apt-get install -y python3-rpi-lgpio
+   else
+      apt-get install -y python3-rpi.gpio
+   fi
 fi
 #-----------------------------------------------------------
 
-#Reboot to apply changes----------------------------
+# Download Python script-----------------------------
+mkdir -p "/opt/RetroFlag"
+script="/opt/RetroFlag/SafeShutdown.py"
+if [[ -n "${BASH_SOURCE[0]}" && -f "$ScriptDir/SafeShutdown.py" ]]; then
+   cp "$ScriptDir/SafeShutdown.py" "$script"
+else
+   wget -O "$script" "$SourcePath/SafeShutdown.py"
+fi
+chmod +x "$script"
+#-----------------------------------------------------------
+
+# Enable Python script to run on start up via systemd-------
+if [[ -f "/etc/rc.local" ]]; then
+   sed -i '/SafeShutdown\.py/d' "/etc/rc.local"
+fi
+
+ServiceFile="/etc/systemd/system/retroflag-picase.service"
+cat << 'EOF' > "$ServiceFile"
+[Unit]
+Description=RetroFlag Pi Case Safe Shutdown Service
+After=local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/RetroFlag/SafeShutdown.py
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable retroflag-picase.service
+echo "Systemd service retroflag-picase.service configured."
+#-----------------------------------------------------------
+
+# Reboot to apply changes----------------------------
 echo "RetroFlag Pi Case installation done. Will now reboot after 3 seconds."
 sleep 3
-sudo reboot
+reboot
 #-----------------------------------------------------------
-
-
-
-
-
-
-
-
-

@@ -1,16 +1,19 @@
-import RPi.GPIO as GPIO
-import os
+#!/usr/bin/env python3
+import signal
+import subprocess
+import sys
 import time
-from multiprocessing import Process
+import RPi.GPIO as GPIO
 
-#initialize pins
-powerPin = 3 #pin 5
-ledPin = 14 #TXD
-resetPin = 2 #pin 13
-powerenPin = 4 #pin 5
+# Initialize pins (BCM numbering)
+powerPin = 3    # Physical pin 5 (Power switch, active LOW)
+ledPin = 14     # Physical pin 8 / TXD (Power LED, active HIGH)
+resetPin = 2    # Physical pin 3 (Reset button, active LOW)
+powerenPin = 4  # Physical pin 7 (Safe shutdown handshake, active HIGH)
 
-#initialize GPIO settings
+
 def init():
+	GPIO.setwarnings(False)
 	GPIO.setmode(GPIO.BCM)
 	GPIO.setup(powerPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 	GPIO.setup(resetPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -18,53 +21,46 @@ def init():
 	GPIO.output(ledPin, GPIO.HIGH)
 	GPIO.setup(powerenPin, GPIO.OUT)
 	GPIO.output(powerenPin, GPIO.HIGH)
-	GPIO.setwarnings(False)
 
-#waits for user to hold button up to 1 second before issuing poweroff command
-def poweroff():
-	while True:
-		#self.assertEqual(GPIO.input(powerPin), GPIO.LOW)
-		GPIO.wait_for_edge(powerPin, GPIO.FALLING)
-		os.system("systemctl stop --user steamlink.service")
-		os.system("sudo sleep 2s")
-		os.system("sudo shutdown -r now")
 
-#blinks the LED to signal button being pushed
-def ledBlink():
-	while True:
-		GPIO.output(ledPin, GPIO.HIGH)
-		#self.assertEqual(GPIO.input(powerPin), GPIO.LOW)
-		GPIO.wait_for_edge(powerPin, GPIO.FALLING)
-		start = time.time()
-		while GPIO.input(powerPin) == GPIO.LOW:
-			GPIO.output(ledPin, GPIO.LOW)
-			time.sleep(0.2)
-			GPIO.output(ledPin, GPIO.HIGH)
-			time.sleep(0.2)
+def handle_exit(signum, frame):
+	# Keep powerenPin HIGH on service termination; do NOT call GPIO.cleanup()
+	# so the case MCU only cuts power after the SoC resets.
+	GPIO.output(powerenPin, GPIO.HIGH)
+	GPIO.output(ledPin, GPIO.HIGH)
+	sys.exit(0)
 
-#resets the pi
-def reset():
+
+def monitor():
 	while True:
-		#self.assertEqual(GPIO.input(resetPin), GPIO.LOW)
-		GPIO.wait_for_edge(resetPin, GPIO.FALLING)
-		os.system("systemctl stop --user steamlink.service")
-		os.system("sudo sleep 2s")
-		os.system("sudo shutdown -r now")
+		# Check power switch (LOW when turned off)
+		if GPIO.input(powerPin) == GPIO.LOW:
+			time.sleep(0.1)
+			if GPIO.input(powerPin) == GPIO.LOW:
+				subprocess.Popen(["/sbin/shutdown", "-r", "now"])
+				while True:
+					GPIO.output(ledPin, GPIO.LOW)
+					time.sleep(0.2)
+					GPIO.output(ledPin, GPIO.HIGH)
+					time.sleep(0.2)
+
+		# Check reset button (LOW when pressed)
+		if GPIO.input(resetPin) == GPIO.LOW:
+			time.sleep(0.1)
+			if GPIO.input(resetPin) == GPIO.LOW:
+				subprocess.Popen(["/sbin/shutdown", "-r", "now"])
+				while True:
+					GPIO.output(ledPin, GPIO.LOW)
+					time.sleep(0.2)
+					GPIO.output(ledPin, GPIO.HIGH)
+					time.sleep(0.2)
+
+		time.sleep(0.1)
 
 
 if __name__ == "__main__":
-	#initialize GPIO settings
+	signal.signal(signal.SIGTERM, handle_exit)
+	signal.signal(signal.SIGINT, handle_exit)
 	init()
-	#create a multiprocessing.Process instance for each function to enable parallelism 
-	powerProcess = Process(target = poweroff)
-	powerProcess.start()
-	ledProcess = Process(target = ledBlink)
-	ledProcess.start()
-	resetProcess = Process(target = reset)
-	resetProcess.start()
+	monitor()
 
-	powerProcess.join()
-	ledProcess.join()
-	resetProcess.join()
-
-	GPIO.cleanup()
